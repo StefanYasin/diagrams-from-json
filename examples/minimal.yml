@@ -1,0 +1,15 @@
+version: 1
+title: Minimal
+layers:
+  - id: app
+nodes:
+  - id: api
+    type: service
+    label: API
+  - id: store
+    type: db
+    label: Postgres
+edges:
+  - from: api
+    to: store
+    label: SQL

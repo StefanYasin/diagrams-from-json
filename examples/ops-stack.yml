@@ -1,0 +1,124 @@
+# A real home monitoring stack: one Proxmox host, a UDM Pro, a NAS.
+# Render with: diagrams-from-json examples/ops-stack.yml -o ops-stack.svg
+version: 1
+title: Ops stack
+subtitle: Single node observability, monitored from the tailnet
+theme: dark
+
+layers:
+  - id: access
+    label: Access
+  - id: query
+    label: Query and alerting
+  - id: collect
+    label: Collectors
+  - id: infra
+    label: Infrastructure
+
+nodes:
+  - id: stefan
+    label: Stefan
+    type: user
+    layer: access
+    note: browser and mail
+  - id: grafana
+    label: Grafana
+    type: service
+    layer: access
+    note: dashboards on :3000
+
+  - id: prometheus
+    label: Prometheus
+    type: service
+    layer: query
+    note: TSDB, 30 day retention
+  - id: loki
+    label: Loki
+    type: service
+    layer: query
+    note: log store, 90 days
+  - id: alertmanager
+    label: Alertmanager
+    type: service
+    layer: query
+    note: routing and silences
+  - id: uptime
+    label: Uptime Kuma
+    type: service
+    layer: query
+    note: blackbox checks
+
+  - id: node-exporter
+    label: node_exporter
+    type: agent
+    layer: collect
+    note: host metrics, 15s scrape
+  - id: promtail
+    label: Promtail
+    type: agent
+    layer: collect
+    note: ships journald logs
+
+  - id: proxmox
+    label: Proxmox VE
+    type: device
+    layer: infra
+    note: primary compute host
+  - id: udm
+    label: UDM Pro
+    type: device
+    layer: infra
+    note: gateway and switch
+  - id: truenas
+    label: TrueNAS
+    type: db
+    layer: infra
+    note: NFS for chunks and backups
+
+edges:
+  - from: stefan
+    to: grafana
+    label: HTTPS
+  - from: grafana
+    to: prometheus
+    label: PromQL
+  - from: grafana
+    to: loki
+    label: LogQL
+  - from: prometheus
+    to: node-exporter
+    label: scrape 15s
+  - from: prometheus
+    to: alertmanager
+    label: firing alerts
+  - from: alertmanager
+    to: stefan
+    label: email
+  - from: promtail
+    to: loki
+    label: push
+  - from: loki
+    to: truenas
+    label: chunks
+  - from: prometheus
+    to: truenas
+    label: WAL backup
+    style: dashed
+  - from: uptime
+    to: grafana
+    label: status feed
+    bidirectional: true
+  - from: node-exporter
+    to: proxmox
+    label: runs on
+    style: dashed
+  - from: udm
+    to: prometheus
+    label: SNMP
+    style: dashed
+
+notes:
+  - label: network
+    text: Scrape traffic stays on the Tailscale tailnet, nothing is exposed to the public internet.
+  - label: retention
+    text: Prometheus keeps 30 days on local disk while Loki keeps 90 days of chunks on TrueNAS.
